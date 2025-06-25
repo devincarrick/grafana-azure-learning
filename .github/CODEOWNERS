@@ -2,6 +2,14 @@
 * @devincarrick
 
 # Specific file/directory owners
-/docs/ devincarrick
-/azure-templates/ devincarrick
-/dashboards/ devincarrick
+/docs/ @devincarrick
+/azure-templates/ @devincarrick
+/dashboards/ @devincarrick
+/azure-setup/ @devincarrick
+/data/ @devincarrick
+/screenshots/ @devincarrick
+
+# Configuration files
+*.yml @devincarrick
+*.yaml @devincarrick
+*.json @devincarrick
