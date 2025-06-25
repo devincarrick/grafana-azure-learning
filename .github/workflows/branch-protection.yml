@@ -1,0 +1,91 @@
+name: Branch Protection and Code Quality
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  # Prevent direct pushes to main branch
+  prevent-direct-push:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if this is a direct push
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "Direct push to main branch detected!"
+            echo "Please create a pull request instead."
+            exit 1
+          fi
+
+  # Code quality checks
+  code-quality:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for large files
+        run: |
+          # Check for files larger than 50MB
+          find . -type f -size +50M | head -10
+          if [ $(find . -type f -size +50MB | wc -l) -gt 0 ]; then
+            echo "Large files detected (>50MB). Please use Git LFS for large files."
+            exit 1
+          fi
+
+      - name: Check for sensitive files
+        run: |
+          # Check for common sensitive file patterns
+          sensitive_patterns=("*.key" "*.pem" "*.p12" "*.pfx" "id_rsa" "id_dsa" "*.env" ".env*" "secrets.*" "*.secret")
+          for pattern in "${sensitive_patterns[@]}"; do
+            if find . -name "$pattern" -type f | grep -q .; then
+              echo "Sensitive files detected with pattern: $pattern"
+              find . -name "$pattern" -type f
+              exit 1
+            fi
+          done
+
+      - name: Validate JSON files
+        run: |
+          # Validate all JSON files
+          find . -name "*.json" -type f | while read file; do
+            if ! jq empty "$file" 2>/dev/null; then
+              echo "Invalid JSON in file: $file"
+              exit 1
+            fi
+          done
+
+      - name: Check README
+        run: |
+          if [ ! -f "README.md" ]; then
+            echo "README.md is missing!"
+            exit 1
+          fi
+
+  # Required status checks
+  required-checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          # Ensure branch names follow convention
+          branch_name="${{ github.head_ref }}"
+          if [[ ! "$branch_name" =~ ^(feature|bugfix|hotfix|release)/[a-z0-9-]+$ ]]; then
+            echo "Branch name '$branch_name' doesn't follow convention: feature/bugfix/hotfix/release/name"
+            exit 1
+          fi
+
+      - name: Check commit message format
+        run: |
+          # Check if commit messages follow conventional commits
+          git log --oneline ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | while read commit; do
+            if [[ ! "$commit" =~ ^[a-f0-9]{7}\ (feat|fix|docs|style|refactor|test|chore)(\([a-z-]+\))?:\ .+ ]]; then
+              echo "Commit message doesn't follow conventional commits format: $commit"
+              exit 1
+            fi
+          done

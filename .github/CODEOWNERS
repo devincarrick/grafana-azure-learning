@@ -1,0 +1,7 @@
+# Global owners
+* @devin carrick
+
+# Specific file/directory owners
+/docs/ devin carrick
+/azure-templates/ devin carrick
+/dashboards/ devin carrick
